@@ -1,141 +1,23 @@
 @using System.Linq
 @using System.Linq.Expressions
+@using Radzen
+@using Radzen.Blazor
 
 <div class="cron-expression-input @Class">
     <label class="cron-label">Cron expression</label>
     <div class="cron-expression-row">
-        <input class="cron-expression"
-               value="@CurrentValue"
-               @oninput="OnExpressionInput"
-               disabled="@Disabled" />
-        <button type="button" class="cron-open" @onclick="OpenDialog" disabled="@Disabled" aria-label="Edit cron">
-            <span class="cron-open-icon">✎</span>
-        </button>
-    </div>
-
-    <div class="cron-fields">
-        @foreach (var field in Fields)
-        {
-            <div class="cron-field">
-                <label class="cron-field-label">@field.Label</label>
-                <input class="cron-field-input"
-                       placeholder="@field.Placeholder"
-                       value="@field.Value"
-                       @oninput="@(e => OnFieldInput(field.Index, e))"
-                       disabled="@Disabled" />
-            </div>
-        }
+        <RadzenTextBox Name="CronExpression"
+                       class="cron-expression"
+                       Value="@CurrentValue"
+                       Change="OnExpressionInput"
+                       Disabled="@Disabled" />
+        <RadzenButton Icon="edit"
+                      ButtonStyle="ButtonStyle.Primary"
+                      class="cron-open"
+                      Disabled="@Disabled"
+                      Click="OpenDialog" />
     </div>
 </div>
-
-@if (_dialogOpen)
-{
-    <div class="cron-modal-backdrop" @onclick="CloseDialog">
-        <div class="cron-modal" @onclick:stopPropagation>
-            <div class="cron-modal-header">
-                <div class="cron-tabs">
-                    @foreach (var tab in DialogTabs)
-                    {
-                        <button type="button"
-                                class="cron-tab @(tab.Index == _activeTabIndex ? "active" : null)"
-                                @onclick="() => SetActiveTab(tab.Index)">
-                            @tab.Label
-                        </button>
-                    }
-                </div>
-                <div class="cron-modal-actions">
-                    <button type="button" class="cron-action" title="Apply" @onclick="CloseDialog">✔</button>
-                    <button type="button" class="cron-action" title="Close" @onclick="CloseDialog">✖</button>
-                </div>
-            </div>
-
-            <div class="cron-modal-body">
-                @if (ActiveDialogField is not null)
-                {
-                    <div class="cron-option-grid">
-                        <div class="cron-option-card">
-                            <label class="cron-option-label">
-                                <input type="radio" name="mode" value="step"
-                                       checked="@(_fieldState.Mode == FieldMode.Step)"
-                                       @onchange="() => SetMode(FieldMode.Step)" />
-                                Step
-                            </label>
-                            <div class="cron-option-body">
-                                <div class="cron-option-row">
-                                    <span>Every</span>
-                                    <select @onchange="OnStepStartChanged" value="@_fieldState.StepStart">
-                                        @foreach (var val in ActiveDialogField.Values)
-                                        {
-                                            <option value="@val.Value">@val.Label</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="cron-option-row">
-                                    <span>Step</span>
-                                    <select @onchange="OnStepIntervalChanged" value="@_fieldState.StepInterval">
-                                        @foreach (var val in ActiveDialogField.StepValues)
-                                        {
-                                            <option value="@val.Value">@val.Label</option>
-                                        }
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="cron-option-card">
-                            <label class="cron-option-label">
-                                <input type="radio" name="mode" value="range"
-                                       checked="@(_fieldState.Mode == FieldMode.Range)"
-                                       @onchange="() => SetMode(FieldMode.Range)" />
-                                Range
-                            </label>
-                            <div class="cron-option-body">
-                                <div class="cron-option-row">
-                                    <span>Min</span>
-                                    <select @onchange="OnRangeMinChanged" value="@_fieldState.RangeMin">
-                                        @foreach (var val in ActiveDialogField.Values)
-                                        {
-                                            <option value="@val.Value">@val.Label</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="cron-option-row">
-                                    <span>Max</span>
-                                    <select @onchange="OnRangeMaxChanged" value="@_fieldState.RangeMax">
-                                        @foreach (var val in ActiveDialogField.Values)
-                                        {
-                                            <option value="@val.Value">@val.Label</option>
-                                        }
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="cron-option-card cron-choice-card">
-                        <label class="cron-option-label">
-                            <input type="radio" name="mode" value="choose"
-                                   checked="@(_fieldState.Mode == FieldMode.Choose)"
-                                   @onchange="() => SetMode(FieldMode.Choose)" />
-                            Choose
-                        </label>
-                        <div class="cron-choice-grid">
-                            @foreach (var val in ActiveDialogField.Values)
-                            {
-                                <label class="cron-choice-item">
-                                    <input type="checkbox"
-                                           checked="@_fieldState.Selected.Contains(val.Value)"
-                                           @onchange="(e => ToggleChoice(val.Value, e))" />
-                                    <span>@val.Label</span>
-                                </label>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-}
 
 @code {
     [Parameter] public string? Value { get; set; }
@@ -147,76 +29,12 @@
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public string? Class { get; set; }
 
+    [Inject] public DialogService DialogService { get; set; } = default!;
+
     private string? _lastValue;
     private string[] _fieldValues = Array.Empty<string>();
-    private bool _dialogOpen;
-    private int _activeTabIndex;
-
-    private FieldState _fieldState = new();
-    private readonly Dictionary<int, FieldState> _fieldStates = new();
 
     private string CurrentValue => Value ?? string.Empty;
-
-    private IReadOnlyList<CronField> Fields
-    {
-        get
-        {
-            EnsureFieldValues();
-
-            var fields = new List<CronField>();
-            var offset = 0;
-
-            if (ShowSeconds)
-            {
-                fields.Add(new CronField(0, "Seconds", "0-59", _fieldValues[0]));
-                offset = 1;
-            }
-
-            fields.Add(new CronField(offset + 0, "Minutes", "0-59", _fieldValues[offset + 0]));
-            fields.Add(new CronField(offset + 1, "Hours", "0-23", _fieldValues[offset + 1]));
-            fields.Add(new CronField(offset + 2, "Day of month", "1-31", _fieldValues[offset + 2]));
-            fields.Add(new CronField(offset + 3, "Month", "1-12", _fieldValues[offset + 3]));
-            fields.Add(new CronField(offset + 4, "Day of week", "0-6", _fieldValues[offset + 4]));
-
-            if (IncludeYear)
-            {
-                fields.Add(new CronField(offset + 5, "Year", "2025", _fieldValues[offset + 5]));
-            }
-
-            return fields;
-        }
-    }
-
-    private IReadOnlyList<DialogTab> DialogTabs
-    {
-        get
-        {
-            EnsureFieldValues();
-            var tabs = new List<DialogTab>();
-            var index = 0;
-
-            if (ShowSeconds)
-            {
-                tabs.Add(new DialogTab(index++, "Seconds", FieldType.Seconds));
-            }
-
-            tabs.Add(new DialogTab(index++, "Minutes", FieldType.Minutes));
-            tabs.Add(new DialogTab(index++, "Hours", FieldType.Hours));
-            tabs.Add(new DialogTab(index++, "Day of Month", FieldType.DayOfMonth));
-            tabs.Add(new DialogTab(index++, "Month", FieldType.Month));
-            tabs.Add(new DialogTab(index++, "Days of Week", FieldType.DayOfWeek));
-
-            if (IncludeYear)
-            {
-                tabs.Add(new DialogTab(index, "Year", FieldType.Year));
-            }
-
-            return tabs;
-        }
-    }
-
-    private DialogField? ActiveDialogField
-        => DialogTabs.Count > 0 ? CreateDialogField(DialogTabs[_activeTabIndex]) : null;
 
     protected override void OnParametersSet()
     {
@@ -261,285 +79,39 @@
         {
             _fieldValues[i] = i < parts.Length ? parts[i] : "*";
         }
-
-        _fieldStates.Clear();
     }
 
-    private async Task OnExpressionInput(ChangeEventArgs e)
+    private async Task OnExpressionInput(object? value)
     {
         if (Disabled) return;
 
-        var value = e.Value?.ToString() ?? string.Empty;
-        _lastValue = value;
-        ParseValueIntoFields(value);
-        await ValueChanged.InvokeAsync(value);
+        var text = value?.ToString() ?? string.Empty;
+        _lastValue = text;
+        ParseValueIntoFields(text);
+        await ValueChanged.InvokeAsync(text);
     }
 
-    private async Task OnFieldInput(int index, ChangeEventArgs e)
+    private async Task OpenDialog()
     {
         if (Disabled) return;
 
-        EnsureFieldValues();
-        _fieldValues[index] = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? "*" : e.Value!.ToString()!;
-        var combined = string.Join(" ", _fieldValues);
-        _lastValue = combined;
-        await ValueChanged.InvokeAsync(combined);
-    }
-
-    private void OpenDialog()
-    {
-        if (Disabled) return;
-        _dialogOpen = true;
-        _activeTabIndex = Math.Min(_activeTabIndex, DialogTabs.Count - 1);
-        SyncFieldState();
-    }
-
-    private void CloseDialog()
-    {
-        _dialogOpen = false;
-    }
-
-    private void SetActiveTab(int index)
-    {
-        _activeTabIndex = index;
-        SyncFieldState();
-    }
-
-    private void SyncFieldState()
-    {
-        var fieldIndex = DialogTabs[_activeTabIndex].FieldIndex;
-        if (_fieldStates.TryGetValue(fieldIndex, out var state))
+        var parameters = new Dictionary<string, object>
         {
-            _fieldState = state.Clone();
-        }
-        else
-        {
-            _fieldState = FieldState.FromExpression(_fieldValues[fieldIndex], CreateDialogField(DialogTabs[_activeTabIndex])!);
-        }
-    }
-
-    private async Task ApplyFieldState()
-    {
-        var fieldIndex = DialogTabs[_activeTabIndex].FieldIndex;
-        var expression = _fieldState.ToExpression();
-        _fieldValues[fieldIndex] = expression;
-        _fieldStates[fieldIndex] = _fieldState.Clone();
-        var combined = string.Join(" ", _fieldValues);
-        _lastValue = combined;
-        await ValueChanged.InvokeAsync(combined);
-    }
-
-    private void SetMode(FieldMode mode)
-    {
-        _fieldState.Mode = mode;
-        _ = ApplyFieldState();
-    }
-
-    private void OnStepStartChanged(ChangeEventArgs e)
-    {
-        _fieldState.StepStart = e.Value?.ToString() ?? "*";
-        _ = ApplyFieldState();
-    }
-
-    private void OnStepIntervalChanged(ChangeEventArgs e)
-    {
-        _fieldState.StepInterval = e.Value?.ToString() ?? "1";
-        _ = ApplyFieldState();
-    }
-
-    private void OnRangeMinChanged(ChangeEventArgs e)
-    {
-        _fieldState.RangeMin = e.Value?.ToString() ?? "0";
-        _ = ApplyFieldState();
-    }
-
-    private void OnRangeMaxChanged(ChangeEventArgs e)
-    {
-        _fieldState.RangeMax = e.Value?.ToString() ?? _fieldState.RangeMin;
-        _ = ApplyFieldState();
-    }
-
-    private void ToggleChoice(string value, ChangeEventArgs e)
-    {
-        var isChecked = e.Value is bool b && b;
-        if (isChecked)
-        {
-            _fieldState.Selected.Add(value);
-        }
-        else
-        {
-            _fieldState.Selected.Remove(value);
-        }
-
-        _ = ApplyFieldState();
-    }
-
-    private DialogField CreateDialogField(DialogTab tab)
-    {
-        var values = tab.FieldType switch
-        {
-            FieldType.Seconds => BuildNumericValues(0, 59, 2),
-            FieldType.Minutes => BuildNumericValues(0, 59, 2),
-            FieldType.Hours => BuildNumericValues(0, 23, 2),
-            FieldType.DayOfMonth => BuildNumericValues(1, 31, 2),
-            FieldType.Month => BuildMonthValues(),
-            FieldType.DayOfWeek => BuildDayOfWeekValues(),
-            FieldType.Year => BuildNumericValues(DateTime.Now.Year, DateTime.Now.Year + 10, 4),
-            _ => BuildNumericValues(0, 59, 2)
+            { nameof(CronExpressionDialog.Value), CurrentValue },
+            { nameof(CronExpressionDialog.ShowSeconds), ShowSeconds },
+            { nameof(CronExpressionDialog.IncludeYear), IncludeYear }
         };
 
-        var steps = tab.FieldType switch
+        var result = await DialogService.OpenAsync<CronExpressionDialog>(
+            "Cron expression",
+            parameters,
+            new DialogOptions { Width = "900px", Height = "auto", Resizable = true, Draggable = true });
+
+        if (result is string updated)
         {
-            FieldType.Month => BuildNumericValues(1, 12, 2),
-            FieldType.DayOfWeek => BuildNumericValues(1, 7, 1),
-            FieldType.Year => BuildNumericValues(1, 10, 1),
-            FieldType.DayOfMonth => BuildNumericValues(1, 31, 2),
-            FieldType.Hours => BuildNumericValues(1, 12, 2),
-            _ => BuildNumericValues(1, 59, 2)
-        };
-
-        return new DialogField(tab.FieldIndex, tab.Label, tab.FieldType, values, steps);
-    }
-
-    private static List<ValueOption> BuildNumericValues(int start, int end, int pad)
-    {
-        var list = new List<ValueOption>();
-        for (var i = start; i <= end; i++)
-        {
-            list.Add(new ValueOption(i.ToString(), i.ToString().PadLeft(pad, '0')));
-        }
-        return list;
-    }
-
-    private static List<ValueOption> BuildMonthValues()
-    {
-        var names = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-        var list = new List<ValueOption>();
-        for (var i = 0; i < 12; i++)
-        {
-            list.Add(new ValueOption((i + 1).ToString(), names[i]));
-        }
-        return list;
-    }
-
-    private static List<ValueOption> BuildDayOfWeekValues()
-    {
-        var names = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-        var list = new List<ValueOption>();
-        for (var i = 0; i < 7; i++)
-        {
-            list.Add(new ValueOption(i.ToString(), names[i]));
-        }
-        return list;
-    }
-
-    private record CronField(int Index, string Label, string Placeholder, string Value);
-    private record DialogTab(int FieldIndex, string Label, FieldType FieldType)
-    {
-        public int Index => FieldIndex;
-    }
-
-    private record DialogField(int FieldIndex, string Label, FieldType FieldType, List<ValueOption> Values, List<ValueOption> StepValues);
-    private record ValueOption(string Value, string Label);
-
-    private enum FieldType
-    {
-        Seconds,
-        Minutes,
-        Hours,
-        DayOfMonth,
-        Month,
-        DayOfWeek,
-        Year
-    }
-
-    private enum FieldMode
-    {
-        Step,
-        Range,
-        Choose
-    }
-
-    private class FieldState
-    {
-        public FieldMode Mode { get; set; } = FieldMode.Step;
-        public string StepStart { get; set; } = "*";
-        public string StepInterval { get; set; } = "1";
-        public string RangeMin { get; set; } = "0";
-        public string RangeMax { get; set; } = "0";
-        public HashSet<string> Selected { get; } = new();
-
-        public string ToExpression()
-        {
-            return Mode switch
-            {
-                FieldMode.Range => $"{RangeMin}-{RangeMax}",
-                FieldMode.Choose => Selected.Count == 0 ? "*" : string.Join(",", Selected.OrderBy(x => x)),
-                _ => StepStart == "*" ? $"*/{StepInterval}" : $"{StepStart}/{StepInterval}"
-            };
-        }
-
-        public FieldState Clone()
-        {
-            var clone = new FieldState
-            {
-                Mode = Mode,
-                StepStart = StepStart,
-                StepInterval = StepInterval,
-                RangeMin = RangeMin,
-                RangeMax = RangeMax
-            };
-            foreach (var item in Selected)
-            {
-                clone.Selected.Add(item);
-            }
-            return clone;
-        }
-
-        public static FieldState FromExpression(string expression, DialogField field)
-        {
-            var state = new FieldState();
-
-            if (string.IsNullOrWhiteSpace(expression) || expression == "*")
-            {
-                state.Mode = FieldMode.Step;
-                state.StepStart = "*";
-                state.StepInterval = "1";
-                return state;
-            }
-
-            if (expression.Contains(','))
-            {
-                state.Mode = FieldMode.Choose;
-                foreach (var part in expression.Split(',', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    state.Selected.Add(part.Trim());
-                }
-                return state;
-            }
-
-            if (expression.Contains('-'))
-            {
-                state.Mode = FieldMode.Range;
-                var parts = expression.Split('-', StringSplitOptions.RemoveEmptyEntries);
-                state.RangeMin = parts.ElementAtOrDefault(0) ?? field.Values.First().Value;
-                state.RangeMax = parts.ElementAtOrDefault(1) ?? state.RangeMin;
-                return state;
-            }
-
-            if (expression.Contains('/'))
-            {
-                state.Mode = FieldMode.Step;
-                var parts = expression.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                state.StepStart = parts.ElementAtOrDefault(0) ?? "*";
-                state.StepInterval = parts.ElementAtOrDefault(1) ?? "1";
-                return state;
-            }
-
-            state.Mode = FieldMode.Step;
-            state.StepStart = expression;
-            state.StepInterval = "1";
-            return state;
+            _lastValue = updated;
+            ParseValueIntoFields(updated);
+            await ValueChanged.InvokeAsync(updated);
         }
     }
 }

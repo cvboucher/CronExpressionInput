@@ -1,0 +1,429 @@
+@using Radzen
+@using Radzen.Blazor
+
+<div class="cron-dialog">
+    <RadzenTabs @bind-Value="_activeTabIndex">
+        @foreach (var tab in Tabs)
+        {
+            <RadzenTabsItem Text="@tab.Label">
+                <div class="cron-dialog-body">
+                    <div class="cron-option-grid">
+                        <RadzenCard class="cron-option-card">
+                            <div class="cron-option-header">
+                                <RadzenRadioButtonList TValue="FieldMode"
+                                                       Value="@_fieldState.Mode"
+                                                       Change="(FieldMode mode) => SetMode(mode)"
+                                                       Data="_stepRangeModes"
+                                                       TextProperty="Label"
+                                                       ValueProperty="Value"
+                                                       Orientation="Orientation.Horizontal" />
+                            </div>
+                            <div class="cron-option-row">
+                                <span>Every</span>
+                                <RadzenDropDown class="cron-option-select"
+                                                TValue="string"
+                                                Data="tab.Values"
+                                                TextProperty="Label"
+                                                ValueProperty="Value"
+                                                Value="@_fieldState.StepStart"
+                                                Change="OnStepStartChanged" />
+                            </div>
+                            <div class="cron-option-row">
+                                <span>Step</span>
+                                <RadzenDropDown class="cron-option-select"
+                                                TValue="string"
+                                                Data="tab.StepValues"
+                                                TextProperty="Label"
+                                                ValueProperty="Value"
+                                                Value="@_fieldState.StepInterval"
+                                                Change="OnStepIntervalChanged" />
+                            </div>
+                        </RadzenCard>
+
+                        <RadzenCard class="cron-option-card">
+                            <div class="cron-option-header">
+                                <RadzenRadioButtonList TValue="FieldMode"
+                                                       Value="@_fieldState.Mode"
+                                                       Change="(FieldMode mode) => SetMode(mode)"
+                                                       Data="_rangeModes"
+                                                       TextProperty="Label"
+                                                       ValueProperty="Value"
+                                                       Orientation="Orientation.Horizontal" />
+                            </div>
+                            <div class="cron-option-row">
+                                <span>Min</span>
+                                <RadzenDropDown class="cron-option-select"
+                                                TValue="string"
+                                                Data="tab.Values"
+                                                TextProperty="Label"
+                                                ValueProperty="Value"
+                                                Value="@_fieldState.RangeMin"
+                                                Change="OnRangeMinChanged" />
+                            </div>
+                            <div class="cron-option-row">
+                                <span>Max</span>
+                                <RadzenDropDown class="cron-option-select"
+                                                TValue="string"
+                                                Data="tab.Values"
+                                                TextProperty="Label"
+                                                ValueProperty="Value"
+                                                Value="@_fieldState.RangeMax"
+                                                Change="OnRangeMaxChanged" />
+                            </div>
+                        </RadzenCard>
+                    </div>
+
+                    <RadzenCard class="cron-option-card">
+                        <div class="cron-option-header">
+                            <RadzenRadioButtonList TValue="FieldMode"
+                                                   Value="@_fieldState.Mode"
+                                                   Change="(FieldMode mode) => SetMode(mode)"
+                                                   Data="_chooseModes"
+                                                   TextProperty="Label"
+                                                   ValueProperty="Value"
+                                                   Orientation="Orientation.Horizontal" />
+                        </div>
+                        <RadzenCheckBoxList TValue="string"
+                                            Data="tab.Values"
+                                            Value="@_fieldState.Selected"
+                                            TextProperty="Label"
+                                            ValueProperty="Value"
+                                            Change="OnChoicesChanged"
+                                            class="cron-choice-list" />
+                    </RadzenCard>
+                </div>
+            </RadzenTabsItem>
+        }
+    </RadzenTabs>
+
+    <div class="cron-dialog-actions">
+        <RadzenButton Text="Apply" ButtonStyle="ButtonStyle.Primary" Click="ApplyAndClose" />
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="Close" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public bool ShowSeconds { get; set; }
+    [Parameter] public bool IncludeYear { get; set; }
+
+    [Inject] public DialogService DialogService { get; set; } = default!;
+
+    private int _activeTabIndex;
+    private string[] _fieldValues = Array.Empty<string>();
+    private FieldState _fieldState = new();
+    private readonly Dictionary<int, FieldState> _fieldStates = new();
+
+    private readonly List<ModeOption> _stepRangeModes = new()
+    {
+        new ModeOption { Label = "Step", Value = FieldMode.Step }
+    };
+
+    private readonly List<ModeOption> _rangeModes = new()
+    {
+        new ModeOption { Label = "Range", Value = FieldMode.Range }
+    };
+
+    private readonly List<ModeOption> _chooseModes = new()
+    {
+        new ModeOption { Label = "Choose", Value = FieldMode.Choose }
+    };
+
+    private IReadOnlyList<DialogTab> Tabs
+    {
+        get
+        {
+            var tabs = new List<DialogTab>();
+            var index = 0;
+
+            if (ShowSeconds)
+            {
+                tabs.Add(new DialogTab(index++, "Seconds", FieldType.Seconds));
+            }
+
+            tabs.Add(new DialogTab(index++, "Minutes", FieldType.Minutes));
+            tabs.Add(new DialogTab(index++, "Hours", FieldType.Hours));
+            tabs.Add(new DialogTab(index++, "Day of Month", FieldType.DayOfMonth));
+            tabs.Add(new DialogTab(index++, "Month", FieldType.Month));
+            tabs.Add(new DialogTab(index++, "Days of Week", FieldType.DayOfWeek));
+
+            if (IncludeYear)
+            {
+                tabs.Add(new DialogTab(index, "Year", FieldType.Year));
+            }
+
+            return tabs;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        ParseValueIntoFields(Value);
+        SyncFieldState();
+    }
+
+    private void ParseValueIntoFields(string? expression)
+    {
+        var expected = GetExpectedFieldCount();
+        _fieldValues = Enumerable.Repeat("*", expected).ToArray();
+
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return;
+        }
+
+        var parts = expression.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < expected; i++)
+        {
+            _fieldValues[i] = i < parts.Length ? parts[i] : "*";
+        }
+    }
+
+    private int GetExpectedFieldCount()
+    {
+        var count = 5; // min hour day month day-of-week
+        if (ShowSeconds) count++;
+        if (IncludeYear) count++;
+        return count;
+    }
+
+    private void SyncFieldState()
+    {
+        var fieldIndex = Tabs[_activeTabIndex].FieldIndex;
+        if (_fieldStates.TryGetValue(fieldIndex, out var state))
+        {
+            _fieldState = state.Clone();
+            return;
+        }
+
+        _fieldState = FieldState.FromExpression(_fieldValues[fieldIndex], Tabs[_activeTabIndex]);
+    }
+
+    private void SetMode(FieldMode mode)
+    {
+        _fieldState.Mode = mode;
+        ApplyFieldState();
+    }
+
+    private void OnStepStartChanged(object? value)
+    {
+        _fieldState.StepStart = value?.ToString() ?? "*";
+        ApplyFieldState();
+    }
+
+    private void OnStepIntervalChanged(object? value)
+    {
+        _fieldState.StepInterval = value?.ToString() ?? "1";
+        ApplyFieldState();
+    }
+
+    private void OnRangeMinChanged(object? value)
+    {
+        _fieldState.RangeMin = value?.ToString() ?? "0";
+        ApplyFieldState();
+    }
+
+    private void OnRangeMaxChanged(object? value)
+    {
+        _fieldState.RangeMax = value?.ToString() ?? _fieldState.RangeMin;
+        ApplyFieldState();
+    }
+
+    private void OnChoicesChanged(IEnumerable<string> values)
+    {
+        _fieldState.Selected.Clear();
+        foreach (var value in values)
+        {
+            _fieldState.Selected.Add(value);
+        }
+        ApplyFieldState();
+    }
+
+    private void ApplyFieldState()
+    {
+        var fieldIndex = Tabs[_activeTabIndex].FieldIndex;
+        _fieldValues[fieldIndex] = _fieldState.ToExpression();
+        _fieldStates[fieldIndex] = _fieldState.Clone();
+    }
+
+    private async Task ApplyAndClose()
+    {
+        var expression = string.Join(" ", _fieldValues);
+        await DialogService.Close(expression);
+    }
+
+    private void Close()
+    {
+        DialogService.Close(null);
+    }
+
+    private record DialogTab(int FieldIndex, string Label, FieldType FieldType)
+    {
+        public List<ValueOption> Values => BuildValues(FieldType);
+        public List<ValueOption> StepValues => BuildStepValues(FieldType);
+    }
+
+    private record ValueOption(string Value, string Label);
+    private record ModeOption { public string Label { get; set; } = string.Empty; public FieldMode Value { get; set; } }
+
+    private enum FieldType
+    {
+        Seconds,
+        Minutes,
+        Hours,
+        DayOfMonth,
+        Month,
+        DayOfWeek,
+        Year
+    }
+
+    private enum FieldMode
+    {
+        Step,
+        Range,
+        Choose
+    }
+
+    private class FieldState
+    {
+        public FieldMode Mode { get; set; } = FieldMode.Step;
+        public string StepStart { get; set; } = "*";
+        public string StepInterval { get; set; } = "1";
+        public string RangeMin { get; set; } = "0";
+        public string RangeMax { get; set; } = "0";
+        public HashSet<string> Selected { get; } = new();
+
+        public string ToExpression()
+        {
+            return Mode switch
+            {
+                FieldMode.Range => $"{RangeMin}-{RangeMax}",
+                FieldMode.Choose => Selected.Count == 0 ? "*" : string.Join(",", Selected.OrderBy(x => x)),
+                _ => StepStart == "*" ? $"*/{StepInterval}" : $"{StepStart}/{StepInterval}"
+            };
+        }
+
+        public FieldState Clone()
+        {
+            var clone = new FieldState
+            {
+                Mode = Mode,
+                StepStart = StepStart,
+                StepInterval = StepInterval,
+                RangeMin = RangeMin,
+                RangeMax = RangeMax
+            };
+            foreach (var item in Selected)
+            {
+                clone.Selected.Add(item);
+            }
+            return clone;
+        }
+
+        public static FieldState FromExpression(string expression, DialogTab tab)
+        {
+            var state = new FieldState();
+
+            if (string.IsNullOrWhiteSpace(expression) || expression == "*")
+            {
+                state.Mode = FieldMode.Step;
+                state.StepStart = "*";
+                state.StepInterval = "1";
+                return state;
+            }
+
+            if (expression.Contains(','))
+            {
+                state.Mode = FieldMode.Choose;
+                foreach (var part in expression.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    state.Selected.Add(part.Trim());
+                }
+                return state;
+            }
+
+            if (expression.Contains('-'))
+            {
+                state.Mode = FieldMode.Range;
+                var parts = expression.Split('-', StringSplitOptions.RemoveEmptyEntries);
+                state.RangeMin = parts.ElementAtOrDefault(0) ?? tab.Values.First().Value;
+                state.RangeMax = parts.ElementAtOrDefault(1) ?? state.RangeMin;
+                return state;
+            }
+
+            if (expression.Contains('/'))
+            {
+                state.Mode = FieldMode.Step;
+                var parts = expression.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                state.StepStart = parts.ElementAtOrDefault(0) ?? "*";
+                state.StepInterval = parts.ElementAtOrDefault(1) ?? "1";
+                return state;
+            }
+
+            state.Mode = FieldMode.Step;
+            state.StepStart = expression;
+            state.StepInterval = "1";
+            return state;
+        }
+    }
+
+    private static List<ValueOption> BuildValues(FieldType type)
+    {
+        return type switch
+        {
+            FieldType.Seconds => BuildNumericValues(0, 59, 2),
+            FieldType.Minutes => BuildNumericValues(0, 59, 2),
+            FieldType.Hours => BuildNumericValues(0, 23, 2),
+            FieldType.DayOfMonth => BuildNumericValues(1, 31, 2),
+            FieldType.Month => BuildMonthValues(),
+            FieldType.DayOfWeek => BuildDayOfWeekValues(),
+            FieldType.Year => BuildNumericValues(DateTime.Now.Year, DateTime.Now.Year + 10, 4),
+            _ => BuildNumericValues(0, 59, 2)
+        };
+    }
+
+    private static List<ValueOption> BuildStepValues(FieldType type)
+    {
+        return type switch
+        {
+            FieldType.Month => BuildNumericValues(1, 12, 2),
+            FieldType.DayOfWeek => BuildNumericValues(1, 7, 1),
+            FieldType.Year => BuildNumericValues(1, 10, 1),
+            FieldType.DayOfMonth => BuildNumericValues(1, 31, 2),
+            FieldType.Hours => BuildNumericValues(1, 12, 2),
+            _ => BuildNumericValues(1, 59, 2)
+        };
+    }
+
+    private static List<ValueOption> BuildNumericValues(int start, int end, int pad)
+    {
+        var list = new List<ValueOption>();
+        for (var i = start; i <= end; i++)
+        {
+            list.Add(new ValueOption(i.ToString(), i.ToString().PadLeft(pad, '0')));
+        }
+        return list;
+    }
+
+    private static List<ValueOption> BuildMonthValues()
+    {
+        var names = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+        var list = new List<ValueOption>();
+        for (var i = 0; i < 12; i++)
+        {
+            list.Add(new ValueOption((i + 1).ToString(), names[i]));
+        }
+        return list;
+    }
+
+    private static List<ValueOption> BuildDayOfWeekValues()
+    {
+        var names = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        var list = new List<ValueOption>();
+        for (var i = 0; i < 7; i++)
+        {
+            list.Add(new ValueOption(i.ToString(), names[i]));
+        }
+        return list;
+    }
+}

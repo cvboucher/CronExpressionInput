@@ -17,14 +17,27 @@ Blazor component for editing cron expressions (from scratch).
 
 ## Usage
 
+> Requires Radzen components. Add `Radzen.Blazor` and register `DialogService` in your host app.
+
 ```razor
 @using CronExpressionInput
+@using Radzen
 
 <CronExpressionInput @bind-Value="Cron" />
 
 @code {
     private string Cron { get; set; } = "0 9 * * 1-5";
 }
+```
+
+### Host app setup
+
+```csharp
+builder.Services.AddScoped<DialogService>();
+```
+
+```razor
+<RadzenDialog />
 ```
 
 ### Optional parameters
