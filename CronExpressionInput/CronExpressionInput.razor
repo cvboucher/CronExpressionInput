@@ -8,7 +8,9 @@
                value="@CurrentValue"
                @oninput="OnExpressionInput"
                disabled="@Disabled" />
-        <button type="button" class="cron-open" @onclick="OpenDialog" disabled="@Disabled">Edit</button>
+        <button type="button" class="cron-open" @onclick="OpenDialog" disabled="@Disabled" aria-label="Edit cron">
+            <span class="cron-open-icon">✎</span>
+        </button>
     </div>
 
     <div class="cron-fields">

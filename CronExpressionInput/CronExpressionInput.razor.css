@@ -12,25 +12,35 @@
 
 .cron-expression-row {
     display: flex;
-    gap: 0.5rem;
+    align-items: stretch;
 }
 
 .cron-expression {
     flex: 1;
-    padding: 0.55rem 0.75rem;
-    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    border-radius: 8px 0 0 8px;
     border: 1px solid #d6d9df;
+    border-right: none;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     background-color: #fff;
 }
 
 .cron-open {
-    padding: 0.5rem 0.85rem;
-    border-radius: 8px;
-    border: 1px solid #c3c7d1;
-    background: #f6f7fb;
+    width: 54px;
+    border-radius: 0 8px 8px 0;
+    border: 1px solid #c58b3e;
+    background: #c58b3e;
     cursor: pointer;
-    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.cron-open-icon {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
 }
 
 .cron-fields {
