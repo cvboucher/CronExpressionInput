@@ -1,0 +1,137 @@
+@using System.Linq
+
+<div class="cron-expression-input @Class">
+    <label class="cron-label">Cron expression</label>
+    <input class="cron-expression"
+           value="@CurrentValue"
+           @oninput="OnExpressionInput"
+           disabled="@Disabled" />
+
+    <div class="cron-fields">
+        @foreach (var field in Fields)
+        {
+            <div class="cron-field">
+                <label class="cron-field-label">@field.Label</label>
+                <input class="cron-field-input"
+                       placeholder="@field.Placeholder"
+                       value="@field.Value"
+                       @oninput="@(e => OnFieldInput(field.Index, e))"
+                       disabled="@Disabled" />
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<string?>>? ValueExpression { get; set; }
+
+    [Parameter] public bool ShowSeconds { get; set; }
+    [Parameter] public bool IncludeYear { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string? _lastValue;
+    private string[] _fieldValues = Array.Empty<string>();
+
+    private string CurrentValue => Value ?? string.Empty;
+
+    private IReadOnlyList<CronField> Fields
+    {
+        get
+        {
+            EnsureFieldValues();
+
+            var fields = new List<CronField>();
+            var offset = 0;
+
+            if (ShowSeconds)
+            {
+                fields.Add(new CronField(0, "Seconds", "0-59", _fieldValues[0]));
+                offset = 1;
+            }
+
+            fields.Add(new CronField(offset + 0, "Minutes", "0-59", _fieldValues[offset + 0]));
+            fields.Add(new CronField(offset + 1, "Hours", "0-23", _fieldValues[offset + 1]));
+            fields.Add(new CronField(offset + 2, "Day of month", "1-31", _fieldValues[offset + 2]));
+            fields.Add(new CronField(offset + 3, "Month", "1-12", _fieldValues[offset + 3]));
+            fields.Add(new CronField(offset + 4, "Day of week", "0-6", _fieldValues[offset + 4]));
+
+            if (IncludeYear)
+            {
+                fields.Add(new CronField(offset + 5, "Year", "2025", _fieldValues[offset + 5]));
+            }
+
+            return fields;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_lastValue != Value)
+        {
+            ParseValueIntoFields(Value);
+            _lastValue = Value;
+        }
+    }
+
+    private void EnsureFieldValues()
+    {
+        var expected = GetExpectedFieldCount();
+        if (_fieldValues.Length != expected)
+        {
+            _fieldValues = Enumerable.Repeat("*", expected).ToArray();
+        }
+    }
+
+    private int GetExpectedFieldCount()
+    {
+        var count = 5; // min hour day month day-of-week
+        if (ShowSeconds) count++;
+        if (IncludeYear) count++;
+        return count;
+    }
+
+    private void ParseValueIntoFields(string? expression)
+    {
+        EnsureFieldValues();
+
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            _fieldValues = Enumerable.Repeat("*", _fieldValues.Length).ToArray();
+            return;
+        }
+
+        var parts = expression.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var expected = GetExpectedFieldCount();
+
+        for (var i = 0; i < expected; i++)
+        {
+            _fieldValues[i] = i < parts.Length ? parts[i] : "*";
+        }
+    }
+
+    private async Task OnExpressionInput(ChangeEventArgs e)
+    {
+        if (Disabled) return;
+
+        var value = e.Value?.ToString() ?? string.Empty;
+        _lastValue = value;
+        ParseValueIntoFields(value);
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private async Task OnFieldInput(int index, ChangeEventArgs e)
+    {
+        if (Disabled) return;
+
+        EnsureFieldValues();
+        _fieldValues[index] = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? "*" : e.Value!.ToString()!;
+        var combined = string.Join(" ", _fieldValues);
+        _lastValue = combined;
+        await ValueChanged.InvokeAsync(combined);
+    }
+
+    private record CronField(int Index, string Label, string Placeholder, string Value);
+}
