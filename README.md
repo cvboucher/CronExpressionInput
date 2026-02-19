@@ -60,6 +60,17 @@ The component ships with scoped CSS in `CronExpressionInput.razor.css`. You can 
 - `.cron-field`
 - `.cron-field-input`
 
+## Sample app
+
+A simple Blazor Server sample is included at `CronExpressionInput.Sample/`.
+
+Run it:
+
+```bash
+cd CronExpressionInput.Sample
+ dotnet run
+```
+
 ## Notes
 
 This component does not validate cron syntax; it keeps the fields in sync and emits the combined expression.
