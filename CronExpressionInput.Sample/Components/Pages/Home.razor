@@ -1,5 +1,4 @@
 @page "/"
-@using CronExpressionInput
 
 <PageTitle>Cron Expression Input</PageTitle>
 
@@ -7,7 +6,7 @@
 
 <p>Use the control below to edit a cron expression using Radzen UI.</p>
 
-<CronExpressionInput @bind-Value="Cron" />
+<CronExpressionInput.CronExpressionInput @bind-Value="Cron" />
 
 <p class="mt-3"><strong>Current:</strong> @Cron</p>
 

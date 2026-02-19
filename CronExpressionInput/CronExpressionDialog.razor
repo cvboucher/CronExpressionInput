@@ -2,34 +2,47 @@
 @using Radzen.Blazor
 
 <div class="cron-dialog">
-    <RadzenTabs @bind-Value="_activeTabIndex">
-        @foreach (var tab in Tabs)
-        {
-            <RadzenTabsItem Text="@tab.Label">
+    <RadzenTabs SelectedIndex="@_activeTabIndex" Change="OnTabChanged">
+        <Tabs>
+            @foreach (var tab in Tabs)
+            {
+                <RadzenTabsItem Text="@tab.Label">
                 <div class="cron-dialog-body">
+                    <RadzenCard class="cron-option-card">
+                        <div class="cron-option-header">
+                            <RadzenRadioButtonList TValue="FieldMode"
+                                                   Value="@_fieldState.Mode"
+                                                   Change="(FieldMode mode) => SetMode(mode)"
+                                                   Data="_everyModes"
+                                                   TextProperty="Label"
+                                                   ValueProperty="Value"
+                                                   Orientation="Orientation.Horizontal" />
+                        </div>
+                    </RadzenCard>
+
                     <div class="cron-option-grid">
                         <RadzenCard class="cron-option-card">
                             <div class="cron-option-header">
                                 <RadzenRadioButtonList TValue="FieldMode"
                                                        Value="@_fieldState.Mode"
                                                        Change="(FieldMode mode) => SetMode(mode)"
-                                                       Data="_stepRangeModes"
+                                                       Data="_stepModes"
                                                        TextProperty="Label"
                                                        ValueProperty="Value"
                                                        Orientation="Orientation.Horizontal" />
                             </div>
                             <div class="cron-option-row">
-                                <span>Every</span>
+                                <span>Start</span>
                                 <RadzenDropDown class="cron-option-select"
                                                 TValue="string"
-                                                Data="tab.Values"
+                                                Data="tab.ValuesWithWildcard"
                                                 TextProperty="Label"
                                                 ValueProperty="Value"
                                                 Value="@_fieldState.StepStart"
                                                 Change="OnStepStartChanged" />
                             </div>
                             <div class="cron-option-row">
-                                <span>Step</span>
+                                <span>Interval</span>
                                 <RadzenDropDown class="cron-option-select"
                                                 TValue="string"
                                                 Data="tab.StepValues"
@@ -70,6 +83,16 @@
                                                 Value="@_fieldState.RangeMax"
                                                 Change="OnRangeMaxChanged" />
                             </div>
+                            <div class="cron-option-row">
+                                <span>Step</span>
+                                <RadzenDropDown class="cron-option-select"
+                                                TValue="string"
+                                                Data="tab.RangeStepValues"
+                                                TextProperty="Label"
+                                                ValueProperty="Value"
+                                                Value="@_fieldState.RangeStep"
+                                                Change="OnRangeStepChanged" />
+                            </div>
                         </RadzenCard>
                     </div>
 
@@ -91,9 +114,120 @@
                                             Change="OnChoicesChanged"
                                             class="cron-choice-list" />
                     </RadzenCard>
+
+                    @if (tab.FieldType == FieldType.DayOfMonth)
+                    {
+                        <div class="cron-option-grid">
+                            <RadzenCard class="cron-option-card">
+                                <div class="cron-option-header">
+                                    <RadzenRadioButtonList TValue="FieldMode"
+                                                           Value="@_fieldState.Mode"
+                                                           Change="(FieldMode mode) => SetMode(mode)"
+                                                           Data="_domSpecialModes"
+                                                           TextProperty="Label"
+                                                           ValueProperty="Value"
+                                                           Orientation="Orientation.Vertical" />
+                                </div>
+                            </RadzenCard>
+
+                            <RadzenCard class="cron-option-card">
+                                <div class="cron-option-header">
+                                    <RadzenRadioButtonList TValue="FieldMode"
+                                                           Value="@_fieldState.Mode"
+                                                           Change="(FieldMode mode) => SetMode(mode)"
+                                                           Data="_nearestWeekdayModes"
+                                                           TextProperty="Label"
+                                                           ValueProperty="Value"
+                                                           Orientation="Orientation.Horizontal" />
+                                </div>
+                                <div class="cron-option-row">
+                                    <span>Day</span>
+                                    <RadzenDropDown class="cron-option-select"
+                                                    TValue="string"
+                                                    Data="BuildNumericValues(1, 31, 2)"
+                                                    TextProperty="Label"
+                                                    ValueProperty="Value"
+                                                    Value="@_fieldState.NearestWeekdayDay"
+                                                    Change="OnNearestWeekdayDayChanged" />
+                                </div>
+                            </RadzenCard>
+                        </div>
+                    }
+
+                    @if (tab.FieldType == FieldType.DayOfWeek)
+                    {
+                        <div class="cron-option-grid">
+                            <RadzenCard class="cron-option-card">
+                                <div class="cron-option-header">
+                                    <RadzenRadioButtonList TValue="FieldMode"
+                                                           Value="@_fieldState.Mode"
+                                                           Change="(FieldMode mode) => SetMode(mode)"
+                                                           Data="_noSpecificModes"
+                                                           TextProperty="Label"
+                                                           ValueProperty="Value"
+                                                           Orientation="Orientation.Horizontal" />
+                                </div>
+                            </RadzenCard>
+
+                            <RadzenCard class="cron-option-card">
+                                <div class="cron-option-header">
+                                    <RadzenRadioButtonList TValue="FieldMode"
+                                                           Value="@_fieldState.Mode"
+                                                           Change="(FieldMode mode) => SetMode(mode)"
+                                                           Data="_lastDowModes"
+                                                           TextProperty="Label"
+                                                           ValueProperty="Value"
+                                                           Orientation="Orientation.Horizontal" />
+                                </div>
+                                <div class="cron-option-row">
+                                    <span>Day</span>
+                                    <RadzenDropDown class="cron-option-select"
+                                                    TValue="string"
+                                                    Data="BuildDayOfWeekValues()"
+                                                    TextProperty="Label"
+                                                    ValueProperty="Value"
+                                                    Value="@_fieldState.LastDayOfWeek"
+                                                    Change="OnLastDayOfWeekChanged" />
+                                </div>
+                            </RadzenCard>
+
+                            <RadzenCard class="cron-option-card">
+                                <div class="cron-option-header">
+                                    <RadzenRadioButtonList TValue="FieldMode"
+                                                           Value="@_fieldState.Mode"
+                                                           Change="(FieldMode mode) => SetMode(mode)"
+                                                           Data="_nthDayModes"
+                                                           TextProperty="Label"
+                                                           ValueProperty="Value"
+                                                           Orientation="Orientation.Horizontal" />
+                                </div>
+                                <div class="cron-option-row">
+                                    <span>Day</span>
+                                    <RadzenDropDown class="cron-option-select"
+                                                    TValue="string"
+                                                    Data="BuildDayOfWeekValues()"
+                                                    TextProperty="Label"
+                                                    ValueProperty="Value"
+                                                    Value="@_fieldState.NthDayOfWeek"
+                                                    Change="OnNthDayOfWeekChanged" />
+                                </div>
+                                <div class="cron-option-row">
+                                    <span>Occurrence</span>
+                                    <RadzenDropDown class="cron-option-select"
+                                                    TValue="string"
+                                                    Data="_nthOccurrenceValues"
+                                                    TextProperty="Label"
+                                                    ValueProperty="Value"
+                                                    Value="@_fieldState.NthOccurrence"
+                                                    Change="OnNthOccurrenceChanged" />
+                                </div>
+                            </RadzenCard>
+                        </div>
+                    }
                 </div>
-            </RadzenTabsItem>
-        }
+                </RadzenTabsItem>
+            }
+        </Tabs>
     </RadzenTabs>
 
     <div class="cron-dialog-actions">
@@ -114,20 +248,61 @@
     private FieldState _fieldState = new();
     private readonly Dictionary<int, FieldState> _fieldStates = new();
 
-    private readonly List<ModeOption> _stepRangeModes = new()
-    {
-        new ModeOption { Label = "Step", Value = FieldMode.Step }
-    };
+    private readonly List<ModeOption> _everyModes =
+    [
+        new() { Label = "Every (*)", Value = FieldMode.Every }
+    ];
 
-    private readonly List<ModeOption> _rangeModes = new()
-    {
-        new ModeOption { Label = "Range", Value = FieldMode.Range }
-    };
+    private readonly List<ModeOption> _stepModes =
+    [
+        new() { Label = "Step (/)", Value = FieldMode.Step }
+    ];
 
-    private readonly List<ModeOption> _chooseModes = new()
-    {
-        new ModeOption { Label = "Choose", Value = FieldMode.Choose }
-    };
+    private readonly List<ModeOption> _rangeModes =
+    [
+        new() { Label = "Range (-)", Value = FieldMode.Range }
+    ];
+
+    private readonly List<ModeOption> _chooseModes =
+    [
+        new() { Label = "Choose (,)", Value = FieldMode.Choose }
+    ];
+
+    private readonly List<ModeOption> _noSpecificModes =
+    [
+        new() { Label = "No specific value (?)", Value = FieldMode.NoSpecific }
+    ];
+
+    private readonly List<ModeOption> _domSpecialModes =
+    [
+        new() { Label = "No specific value (?)", Value = FieldMode.NoSpecific },
+        new() { Label = "Last day of month (L)", Value = FieldMode.Last },
+        new() { Label = "Last weekday of month (LW)", Value = FieldMode.LastWeekday }
+    ];
+
+    private readonly List<ModeOption> _nearestWeekdayModes =
+    [
+        new() { Label = "Nearest weekday (W)", Value = FieldMode.NearestWeekday }
+    ];
+
+    private readonly List<ModeOption> _lastDowModes =
+    [
+        new() { Label = "Last occurrence in month (L)", Value = FieldMode.Last }
+    ];
+
+    private readonly List<ModeOption> _nthDayModes =
+    [
+        new() { Label = "Nth occurrence in month (#)", Value = FieldMode.NthDay }
+    ];
+
+    private readonly List<ValueOption> _nthOccurrenceValues =
+    [
+        new("1", "1st"),
+        new("2", "2nd"),
+        new("3", "3rd"),
+        new("4", "4th"),
+        new("5", "5th")
+    ];
 
     private IReadOnlyList<DialogTab> Tabs
     {
@@ -145,7 +320,7 @@
             tabs.Add(new DialogTab(index++, "Hours", FieldType.Hours));
             tabs.Add(new DialogTab(index++, "Day of Month", FieldType.DayOfMonth));
             tabs.Add(new DialogTab(index++, "Month", FieldType.Month));
-            tabs.Add(new DialogTab(index++, "Days of Week", FieldType.DayOfWeek));
+            tabs.Add(new DialogTab(index++, "Day of Week", FieldType.DayOfWeek));
 
             if (IncludeYear)
             {
@@ -181,7 +356,7 @@
 
     private int GetExpectedFieldCount()
     {
-        var count = 5; // min hour day month day-of-week
+        var count = 5;
         if (ShowSeconds) count++;
         if (IncludeYear) count++;
         return count;
@@ -197,6 +372,12 @@
         }
 
         _fieldState = FieldState.FromExpression(_fieldValues[fieldIndex], Tabs[_activeTabIndex]);
+    }
+
+    private void OnTabChanged(int index)
+    {
+        _activeTabIndex = index;
+        SyncFieldState();
     }
 
     private void SetMode(FieldMode mode)
@@ -229,6 +410,12 @@
         ApplyFieldState();
     }
 
+    private void OnRangeStepChanged(object? value)
+    {
+        _fieldState.RangeStep = value?.ToString() ?? "";
+        ApplyFieldState();
+    }
+
     private void OnChoicesChanged(IEnumerable<string> values)
     {
         _fieldState.Selected.Clear();
@@ -236,6 +423,30 @@
         {
             _fieldState.Selected.Add(value);
         }
+        ApplyFieldState();
+    }
+
+    private void OnNearestWeekdayDayChanged(object? value)
+    {
+        _fieldState.NearestWeekdayDay = value?.ToString() ?? "1";
+        ApplyFieldState();
+    }
+
+    private void OnLastDayOfWeekChanged(object? value)
+    {
+        _fieldState.LastDayOfWeek = value?.ToString() ?? "5";
+        ApplyFieldState();
+    }
+
+    private void OnNthDayOfWeekChanged(object? value)
+    {
+        _fieldState.NthDayOfWeek = value?.ToString() ?? "1";
+        ApplyFieldState();
+    }
+
+    private void OnNthOccurrenceChanged(object? value)
+    {
+        _fieldState.NthOccurrence = value?.ToString() ?? "1";
         ApplyFieldState();
     }
 
@@ -249,7 +460,7 @@
     private async Task ApplyAndClose()
     {
         var expression = string.Join(" ", _fieldValues);
-        await DialogService.Close(expression);
+        DialogService.Close(expression);
     }
 
     private void Close()
@@ -260,7 +471,9 @@
     private record DialogTab(int FieldIndex, string Label, FieldType FieldType)
     {
         public List<ValueOption> Values => BuildValues(FieldType);
+        public List<ValueOption> ValuesWithWildcard => [new("*", "*"), .. BuildValues(FieldType)];
         public List<ValueOption> StepValues => BuildStepValues(FieldType);
+        public List<ValueOption> RangeStepValues => [new("", "None"), .. BuildStepValues(FieldType)];
     }
 
     private record ValueOption(string Value, string Label);
@@ -279,27 +492,51 @@
 
     private enum FieldMode
     {
+        Every,
         Step,
         Range,
-        Choose
+        Choose,
+        NoSpecific,
+        Last,
+        NearestWeekday,
+        LastWeekday,
+        NthDay
     }
 
     private class FieldState
     {
-        public FieldMode Mode { get; set; } = FieldMode.Step;
+        public FieldMode Mode { get; set; } = FieldMode.Every;
         public string StepStart { get; set; } = "*";
         public string StepInterval { get; set; } = "1";
         public string RangeMin { get; set; } = "0";
         public string RangeMax { get; set; } = "0";
+        public string RangeStep { get; set; } = "";
         public HashSet<string> Selected { get; } = new();
+        public string NearestWeekdayDay { get; set; } = "1";
+        public string LastDayOfWeek { get; set; } = "5";
+        public string NthDayOfWeek { get; set; } = "1";
+        public string NthOccurrence { get; set; } = "1";
 
         public string ToExpression()
         {
             return Mode switch
             {
-                FieldMode.Range => $"{RangeMin}-{RangeMax}",
-                FieldMode.Choose => Selected.Count == 0 ? "*" : string.Join(",", Selected.OrderBy(x => x)),
-                _ => StepStart == "*" ? $"*/{StepInterval}" : $"{StepStart}/{StepInterval}"
+                FieldMode.Every => "*",
+                FieldMode.Step => StepStart == "*"
+                    ? $"*/{StepInterval}"
+                    : $"{StepStart}/{StepInterval}",
+                FieldMode.Range => string.IsNullOrEmpty(RangeStep)
+                    ? $"{RangeMin}-{RangeMax}"
+                    : $"{RangeMin}-{RangeMax}/{RangeStep}",
+                FieldMode.Choose => Selected.Count == 0
+                    ? "*"
+                    : string.Join(",", Selected.OrderBy(x => int.TryParse(x, out var n) ? n : 0)),
+                FieldMode.NoSpecific => "?",
+                FieldMode.Last => string.IsNullOrEmpty(LastDayOfWeek) ? "L" : $"{LastDayOfWeek}L",
+                FieldMode.NearestWeekday => $"{NearestWeekdayDay}W",
+                FieldMode.LastWeekday => "LW",
+                FieldMode.NthDay => $"{NthDayOfWeek}#{NthOccurrence}",
+                _ => "*"
             };
         }
 
@@ -311,7 +548,12 @@
                 StepStart = StepStart,
                 StepInterval = StepInterval,
                 RangeMin = RangeMin,
-                RangeMax = RangeMax
+                RangeMax = RangeMax,
+                RangeStep = RangeStep,
+                NearestWeekdayDay = NearestWeekdayDay,
+                LastDayOfWeek = LastDayOfWeek,
+                NthDayOfWeek = NthDayOfWeek,
+                NthOccurrence = NthOccurrence
             };
             foreach (var item in Selected)
             {
@@ -326,9 +568,49 @@
 
             if (string.IsNullOrWhiteSpace(expression) || expression == "*")
             {
-                state.Mode = FieldMode.Step;
-                state.StepStart = "*";
-                state.StepInterval = "1";
+                state.Mode = FieldMode.Every;
+                return state;
+            }
+
+            if (expression == "?")
+            {
+                state.Mode = FieldMode.NoSpecific;
+                return state;
+            }
+
+            if (expression == "L")
+            {
+                state.Mode = FieldMode.Last;
+                state.LastDayOfWeek = "";
+                return state;
+            }
+
+            if (expression == "LW")
+            {
+                state.Mode = FieldMode.LastWeekday;
+                return state;
+            }
+
+            if (expression.EndsWith("W") && int.TryParse(expression[..^1], out _))
+            {
+                state.Mode = FieldMode.NearestWeekday;
+                state.NearestWeekdayDay = expression[..^1];
+                return state;
+            }
+
+            if (expression.EndsWith("L") && int.TryParse(expression[..^1], out _))
+            {
+                state.Mode = FieldMode.Last;
+                state.LastDayOfWeek = expression[..^1];
+                return state;
+            }
+
+            if (expression.Contains('#'))
+            {
+                state.Mode = FieldMode.NthDay;
+                var parts = expression.Split('#', 2);
+                state.NthDayOfWeek = parts.ElementAtOrDefault(0) ?? "1";
+                state.NthOccurrence = parts.ElementAtOrDefault(1) ?? "1";
                 return state;
             }
 
@@ -342,27 +624,40 @@
                 return state;
             }
 
+            if (expression.Contains('/'))
+            {
+                var slashParts = expression.Split('/', 2);
+                var left = slashParts[0];
+                var interval = slashParts.ElementAtOrDefault(1) ?? "1";
+
+                if (left.Contains('-'))
+                {
+                    state.Mode = FieldMode.Range;
+                    var rangeParts = left.Split('-', 2);
+                    state.RangeMin = rangeParts.ElementAtOrDefault(0) ?? tab.Values.First().Value;
+                    state.RangeMax = rangeParts.ElementAtOrDefault(1) ?? state.RangeMin;
+                    state.RangeStep = interval;
+                }
+                else
+                {
+                    state.Mode = FieldMode.Step;
+                    state.StepStart = left;
+                    state.StepInterval = interval;
+                }
+                return state;
+            }
+
             if (expression.Contains('-'))
             {
                 state.Mode = FieldMode.Range;
-                var parts = expression.Split('-', StringSplitOptions.RemoveEmptyEntries);
+                var parts = expression.Split('-', 2);
                 state.RangeMin = parts.ElementAtOrDefault(0) ?? tab.Values.First().Value;
                 state.RangeMax = parts.ElementAtOrDefault(1) ?? state.RangeMin;
                 return state;
             }
 
-            if (expression.Contains('/'))
-            {
-                state.Mode = FieldMode.Step;
-                var parts = expression.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                state.StepStart = parts.ElementAtOrDefault(0) ?? "*";
-                state.StepInterval = parts.ElementAtOrDefault(1) ?? "1";
-                return state;
-            }
-
-            state.Mode = FieldMode.Step;
-            state.StepStart = expression;
-            state.StepInterval = "1";
+            state.Mode = FieldMode.Choose;
+            state.Selected.Add(expression);
             return state;
         }
     }

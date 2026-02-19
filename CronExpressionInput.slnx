@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CronExpressionInput.Sample/CronExpressionInput.Sample.csproj" />
+  <Project Path="CronExpressionInput/CronExpressionInput.csproj" />
+</Solution>

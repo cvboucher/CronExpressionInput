@@ -7,7 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddScoped<DialogService>();
+//builder.Services.AddScoped<DialogService>();
+builder.Services.AddRadzenComponents();
 
 var app = builder.Build();
 
